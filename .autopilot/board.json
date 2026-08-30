@@ -1,0 +1,13 @@
+{
+  "issue": 3,
+  "round": 1,
+  "phase": "plan",
+  "plan": {
+    "analysis_roles": [],
+    "skipped": {}
+  },
+  "reports": {},
+  "impl_tasks": [],
+  "decisions": [],
+  "blocked": null
+}
