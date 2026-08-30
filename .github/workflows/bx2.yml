@@ -1,0 +1,29 @@
+# <org>/.github/.github/workflows/autopilot.yml
+# 組織共通の再利用ワークフロー。各プロダクトの薄い autopilot.yml から呼ばれる。
+name: bx2-decl-only
+
+on:
+  workflow_call:
+    inputs:
+      issue_number: { required: true,  type: number }
+      issue_body:   { required: true,  type: string }
+      project_name: { required: true,  type: string }
+      node_version: { required: false, type: string, default: '22' }
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # 同時に複数のフィードバックが届いても main を同時に触らせない
+    concurrency:
+      group: autopilot-${{ github.repository }}
+      cancel-in-progress: false
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - run: echo bx2
