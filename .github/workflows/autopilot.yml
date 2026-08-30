@@ -14,6 +14,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      id-token: write     # 呼び先の claude-code-action が OIDC に使う
 
     # 無限ループ防止:
     # labeled を拾うと、エージェント自身が優先度ラベルを付けた瞬間に再発火する。
