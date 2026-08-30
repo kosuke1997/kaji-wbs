@@ -63,7 +63,9 @@ tech:
     ログイン画面は v1 に作らない。推測困難な共有URLを二人でブックマークし、
     開いたときに「夫」「妻」を選ぶ。住所は保存せず、ゴミ収集曜日（燃やすごみ=月金 /
     缶びんペット=火 / プラ=土）は定数として持つ。頻度は
-    毎日・週次・隔週・月次・四半期・都度 に正規化し、「都度」は次回予定日を持たない。
+    単一列で正規化せず、原文(frequency_label)と計算用(recurrence, times_per_period)を
+    分けて持つ。recurrence は daily/weekly/biweekly/monthly/quarterly/biennial/
+    per_use/event/ad_hoc の9値。後ろ3つは次回予定日を持たない。
 
 constraints:
   budget: 無料枠のみ（Vercel Hobby / Turso Free / LINE公式アカウント無料枠）

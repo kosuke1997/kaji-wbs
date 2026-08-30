@@ -18,8 +18,16 @@ model: opus
 
 ## 手順
 
-1. `hq/projects.yaml`（またはリポジトリ内の同等の定義）の `approval_criteria` を読む。
+1. `.claude/approval-criteria.yaml` の `approval_criteria` を読む。
+   これは `hq/projects.yaml` から払い出し時に複製されたもので、
+   **プロダクトリポジトリから hq は読めない**ため、参照先はこのファイルに限る。
    読めない場合は推測で進めず `needs-human` を付けて停止する。
+   （閾値を創作することは、主観を基準と偽装することにあたる。絶対にしない）
+
+   ただし Issue に `planned` ラベルが付いている場合は**採否審査を飛ばし**、
+   手順5の仕様作成から始める。これは brief の承認時点で採否が済んでいる
+   計画タスクであり、同じ判断を二度させると必ず止まって前に進まない。
+   `escalate_if` の条件（破壊的変更・課金・曖昧）は `planned` でも適用する。
 2. フィードバックを分類する。
    - `bug` / `feature` / `idea` / `question` / `noise`
    - `noise`（意味を成さない、スパム、重複）は `wontfix` を付けて即終了する。
