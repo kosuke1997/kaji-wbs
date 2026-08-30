@@ -1,0 +1,79 @@
+# 各部署の発言を Discord に流し、組織の動きを1つのチャンネルで追えるようにする。
+#
+# 有効化: リポジトリ Secret に DISCORD_WEBHOOK を設定する
+#   gh secret set DISCORD_WEBHOOK --body 'https://discord.com/api/webhooks/...'
+# 未設定なら全ステップが静かにスキップされる。
+name: Notify Discord
+
+on:
+  issues:
+    types: [opened, labeled, closed]
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, closed]
+
+# 通知が本体の処理を待たせない。失敗しても本体は止めない。
+concurrency:
+  group: notify-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    if: vars.DISCORD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      # コメント本文の冒頭 "## レビュー結果 (code-reviewer)" などから部署を特定する。
+      # 全エージェントがこの見出し形式で発言する規約になっている（CLAUDE.md 共通規則1）。
+      - name: Detect department
+        id: dept
+        env:
+          BODY: ${{ github.event.comment.body || github.event.issue.body || github.event.pull_request.body }}
+        run: |
+          DEPT=$(printf '%s' "$BODY" | grep -oiE '\((pm-triage|product-planner|solution-architect|ux-designer|implementer|code-reviewer|qa-tester|design-qa|deploy-agent|portfolio-manager|legal-reviewer|researcher|rnd-engineer)\)' | head -1 | tr -d '()')
+          if [ -z "$DEPT" ]; then
+            case "${{ github.event.label.name }}" in
+              needs-human) DEPT=needs-human ;;
+              incident)    DEPT=incident ;;
+              *)           DEPT=organization ;;
+            esac
+          fi
+          echo "name=${DEPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Build title
+        id: title
+        run: |
+          case "${{ github.event_name }}:${{ github.event.action }}" in
+            issues:opened)         T="Issue #${{ github.event.issue.number }} 起票: ${{ github.event.issue.title }}" ;;
+            issues:labeled)        T="Issue #${{ github.event.issue.number }} に ${{ github.event.label.name }} が付きました" ;;
+            issues:closed)         T="Issue #${{ github.event.issue.number }} 完了: ${{ github.event.issue.title }}" ;;
+            issue_comment:created) T="${{ github.event.issue.pull_request && 'PR' || 'Issue' }} #${{ github.event.issue.number }} に発言" ;;
+            pull_request:opened)   T="PR #${{ github.event.pull_request.number }} 作成: ${{ github.event.pull_request.title }}" ;;
+            pull_request:closed)   T="PR #${{ github.event.pull_request.number }} ${{ github.event.pull_request.merged && 'マージ' || 'クローズ' }}" ;;
+            *)                     T="${{ github.event_name }}" ;;
+          esac
+          {
+            echo "text<<EOF"
+            echo "[${{ github.event.repository.name }}] ${T}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          BODY: ${{ github.event.comment.body || github.event.issue.body || github.event.pull_request.body }}
+          LINK: ${{ github.event.comment.html_url || github.event.issue.html_url || github.event.pull_request.html_url }}
+        run: |
+          if [ -z "${WEBHOOK:-}" ]; then
+            echo "DISCORD_WEBHOOK が未設定のためスキップします"
+            exit 0
+          fi
+          bash scripts/discord-notify.sh \
+            "$WEBHOOK" \
+            "${{ steps.title.outputs.text }}" \
+            "$BODY" \
+            "$LINK" \
+            "${{ steps.dept.outputs.name }}"
