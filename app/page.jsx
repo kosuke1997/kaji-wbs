@@ -13,7 +13,8 @@ export default async function Home() {
 
   try {
     groups = await getTaskGroups();
-  } catch {
+  } catch (error) {
+    console.error("Home: failed to load task groups", error);
     failed = true;
   }
 
