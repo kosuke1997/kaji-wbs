@@ -7,6 +7,14 @@ on:
 
 jobs:
   run:
+    # 再利用ワークフローの permissions は「絞る」ことしかできない。
+    # 呼び出し側がここで権限を宣言していないと、呼び先が contents: write 等を
+    # 要求した時点で startup_failure になる（ジョブが1つも始まらない）。
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
     # 無限ループ防止:
     # labeled を拾うと、エージェント自身が優先度ラベルを付けた瞬間に再発火する。
     # bot 自身のアクションを除外し、ラベル名を feedback に限定する。

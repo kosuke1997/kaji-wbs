@@ -37,12 +37,17 @@ jobs:
       # 関門1: 破壊的マイグレーション
       - name: Guard destructive migrations
         run: |
+          FOUND=0
           if [ -d migrations ]; then
-            if grep -rniE 'DROP[[:space:]]+(TABLE|COLUMN)|TRUNCATE|ALTER[[:space:]]+TABLE[^;]*NOT[[:space:]]+NULL' migrations/; then
-              echo "::error::破壊的DDLを検出しました。自動マージしません。"
-              exit 1
-            fi
+            while IFS= read -r f; do
+              if sed 's/--.*$//' "$f" |
+                 grep -niE 'DROP[[:space:]]+(TABLE|COLUMN)|TRUNCATE|ALTER[[:space:]]+TABLE[^;]*NOT[[:space:]]+NULL'; then
+                echo "::error file=$f::破壊的DDLを検出しました。自動マージしません。"
+                FOUND=1
+              fi
+            done < <(find migrations -name '*.sql')
           fi
+          [ "$FOUND" = "0" ] || exit 1
 
       # 関門2: needs-human が付いていたら止める
       - name: Block on needs-human label
