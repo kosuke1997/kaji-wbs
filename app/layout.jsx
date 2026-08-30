@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "kaji-wbs",
+  title: "家事WBS",
   description: "夫婦が「今日やること」を同じ画面で見て、やったら記録され、忘れそうなものがLINEに届く",
 };
 
