@@ -1,0 +1,22 @@
+# 各プロダクト側の薄いファイル。実体は <org>/.github の再利用ワークフロー。
+name: Feedback Autopilot
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  run:
+    # 無限ループ防止:
+    # labeled を拾うと、エージェント自身が優先度ラベルを付けた瞬間に再発火する。
+    # bot 自身のアクションを除外し、ラベル名を feedback に限定する。
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      ( github.event.action == 'opened' ||
+        (github.event.action == 'labeled' && github.event.label.name == 'feedback') )
+    uses: kosuke1997/.github/.github/workflows/autopilot.yml@main
+    with:
+      issue_number: ${{ github.event.issue.number }}
+      issue_body:   ${{ github.event.issue.body }}
+      project_name: kaji-wbs
+    secrets: inherit

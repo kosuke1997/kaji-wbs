@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+.env
+.env.*
+!.env.example
+.vercel
+design-qa-artifacts/
+.claude/settings.local.json

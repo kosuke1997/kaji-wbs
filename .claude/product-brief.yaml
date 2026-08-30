@@ -1,0 +1,80 @@
+product:
+  name: kaji-wbs
+  display_name: 家事WBS
+  one_liner: 夫婦が「今日やること」を同じ画面で見て、やったら記録され、忘れそうなものがLINEに届く
+  users:
+    - 夫（見る人・やる人・記録する人）
+    - 妻（同上）
+  core_job: 45件の家事から今日・今週やることを二人分まとめて表示し、完了を記録し、当日分をLINEで通知する
+
+scope:
+  must:
+    - 初期45タスクが投入済みの状態で、担当（夫/妻/共同/交代/各自/外注）と合意レベル（Lv1/Lv2/未合意）を二人で編集できる
+    - 頻度とトリガーから「今日やること」「今週やること」を二人分まとめて一覧表示する
+    - 完了を記録すると、頻度に応じて次回予定日が自動で繰り上がる
+    - その日やるべきタスクを毎朝LINEに通知する
+    - 担当別・種別別（実作業／段取り・管理）のタスク数を表示する
+  later:
+    - 実施記録の履歴とグラフ
+    - 未合意タスクの洗い出しと催促
+    - Oisix到着日との連動
+    - 家計の記録・精算
+    - 外注（クリーニング・粗大ごみ）の手配管理
+    - 月1回15分の見直しリマインド
+  never:
+    - 点数化・貸し借りの記録・相手の評価
+    - 個人間の完了率の比較表示
+    - 位置情報の取得
+    - 課金
+
+data:
+  entities:
+    - name: member
+      fields: [id, label, line_user_id]
+    - name: task
+      fields:
+        [
+          id,
+          category_major,
+          category_mid,
+          title,
+          kind,
+          frequency,
+          trigger_note,
+          criteria_lv1,
+          criteria_lv2,
+          assignee,
+          agreed_level,
+          next_due_on,
+          active,
+        ]
+    - name: completion
+      fields: [id, task_id, member_id, done_on, level]
+    - name: notification_log
+      fields: [id, sent_on, task_ids, status]
+  scale: タスク45件 / 完了記録は年間およそ3000行 / 利用者2名
+
+tech:
+  auth: shared-link
+  billing: none
+  external_apis:
+    - LINE Messaging API（公式アカウント無料枠・月200通以内）
+  notes: >-
+    ログイン画面は v1 に作らない。推測困難な共有URLを二人でブックマークし、
+    開いたときに「夫」「妻」を選ぶ。住所は保存せず、ゴミ収集曜日（燃やすごみ=月金 /
+    缶びんペット=火 / プラ=土）は定数として持つ。頻度は
+    毎日・週次・隔週・月次・四半期・都度 に正規化し、「都度」は次回予定日を持たない。
+
+constraints:
+  budget: 無料枠のみ（Vercel Hobby / Turso Free / LINE公式アカウント無料枠）
+  deadline: なし
+
+autonomy: full
+
+risks:
+  - LINE公式アカウントの作成と友だち追加は人の作業が1回必要。ここだけ自動化できない
+  - 元WBSの頻度が「週3〜4回」「季節ごと」など不定形。正規化で意味が変わる項目が出る可能性があり、
+    実際に使いながら調整する前提とする
+  - 共有URLが漏れると家事の記録が第三者に見える。機微情報は持たない設計とし、
+    URLは推測困難な長さにする
+  - 「相手を評価する道具にしない」という元WBSの思想を、完了率の個人比較を出さないことで担保する

@@ -1,0 +1,197 @@
+# Phase 5 — マージとデプロイの自動化。Phase 1〜4 が安定してから有効化する。
+#
+# 有効化のスイッチ: リポジトリ変数 AUTOPILOT_AUTOMERGE を 'true' にする
+#   gh variable set AUTOPILOT_AUTOMERGE --body true
+# 無効の間、このワークフローは Preview へのスモークテストまでで停止し、マージしない。
+name: Auto Merge & Verify
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  gate-and-merge:
+    # autopilot が作った PR だけを対象にする。人間の PR は自動マージしない。
+    if: github.event.pull_request.user.login == 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      merged: ${{ steps.merge.outputs.merged }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # 関門1: 破壊的マイグレーション
+      - name: Guard destructive migrations
+        run: |
+          if [ -d migrations ]; then
+            if grep -rniE 'DROP[[:space:]]+(TABLE|COLUMN)|TRUNCATE|ALTER[[:space:]]+TABLE[^;]*NOT[[:space:]]+NULL' migrations/; then
+              echo "::error::破壊的DDLを検出しました。自動マージしません。"
+              exit 1
+            fi
+          fi
+
+      # 関門2: needs-human が付いていたら止める
+      - name: Block on needs-human label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q '.labels[].name')
+          if echo "$LABELS" | grep -qx 'needs-human'; then
+            echo "::error::needs-human ラベルが付いています。人間の判断を待ちます。"
+            exit 1
+          fi
+
+      # 関門3: テスト
+      - name: Test gate
+        run: |
+          npm test
+          npm run lint
+
+      # 関門4: Preview デプロイの完了を待つ（最大5分、取れなければ失敗）
+      - name: Wait for Vercel preview
+        id: preview
+        env:
+          VERCEL_TOKEN:      ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID:    ${{ secrets.VERCEL_TEAM_ID }}
+          COMMIT_SHA:        ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/wait-for-preview.sh
+
+      # 関門5: Preview に対するスモークテスト（マージ前に実行するのが要点）
+      - name: Smoke test on preview
+        run: |
+          URL="${{ steps.preview.outputs.url }}"
+          echo "smoke testing $URL"
+          curl -fsS "$URL" > /dev/null
+          curl -fsS "$URL/api/health" > /dev/null
+          echo "smoke test: OK"
+
+      # 関門6b: デザインQA（UI変更を含む PR のみ）
+      # 判定は scripts/design-check.mjs の実測値と閾値の比較だけで行う。
+      # 「見た目の良し悪し」は判定に含めない。閾値を変えたいなら人間がスクリプトを変える。
+      - name: Detect UI changes
+        id: ui
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only)
+          echo "$FILES"
+          if echo "$FILES" | grep -qE '\.(tsx|jsx|vue|svelte|css|scss)$|^(src/)?(app|pages|components|styles)/'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright
+        if: steps.ui.outputs.changed == 'true'
+        run: npx --yes playwright install --with-deps chromium
+
+      - name: Design QA gate
+        if: steps.ui.outputs.changed == 'true'
+        env:
+          DESIGN_QA_PATHS: ${{ vars.DESIGN_QA_PATHS }}
+        run: |
+          URL="${{ steps.preview.outputs.url }}"
+          # 検証対象パスはリポジトリ変数 DESIGN_QA_PATHS で指定する（既定はトップのみ）
+          node scripts/design-check.mjs "$URL" ${DESIGN_QA_PATHS:-/}
+
+      - name: Upload design QA artifacts
+        if: always() && steps.ui.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-qa-${{ github.event.pull_request.number }}
+          path: design-qa-artifacts/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Report gates passed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "全関門通過
+          - migrations: OK
+          - test / lint: OK
+          - preview: ${{ steps.preview.outputs.url }}
+          - smoke test: OK
+          - design QA: ${{ steps.ui.outputs.changed == 'true' && 'OK' || 'UI変更なしのためスキップ' }}"
+
+      - name: Merge
+        id: merge
+        if: vars.AUTOPILOT_AUTOMERGE == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
+          echo "merged=true" >> "$GITHUB_OUTPUT"
+
+      - name: Automerge disabled notice
+        if: vars.AUTOPILOT_AUTOMERGE != 'true'
+        run: echo "AUTOPILOT_AUTOMERGE が有効ではないため、マージせず停止しました。"
+
+  verify-production:
+    needs: gate-and-merge
+    if: needs.gate-and-merge.outputs.merged == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Wait and verify production
+        id: verify
+        env:
+          PROD_URL: ${{ vars.PROD_URL }}
+        run: |
+          sleep 90
+          for i in 1 2 3; do
+            if curl -fsS "$PROD_URL" > /dev/null && curl -fsS "$PROD_URL/api/health" > /dev/null; then
+              echo "production health: OK"
+              exit 0
+            fi
+            echo "health check failed (attempt $i/3), retrying in 20s"
+            sleep 20
+          done
+          echo "::error::本番のヘルスチェックに失敗しました。ロールバックします。"
+          exit 1
+
+      - name: Rollback on failure
+        id: rollback
+        if: failure()
+        env:
+          VERCEL_TOKEN:      ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID:    ${{ secrets.VERCEL_TEAM_ID }}
+        run: bash scripts/rollback.sh
+
+      - name: Open incident issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.AUTOPILOT_HQ_TOKEN }}
+        run: |
+          gh issue create \
+            --repo ${{ vars.HQ_REPO }} \
+            --title "[incident] ${{ github.repository }} 本番ヘルスチェック失敗" \
+            --label incident \
+            --body "本番のヘルスチェックに失敗し、直前のデプロイへロールバックしました。
+
+          - repo: ${{ github.repository }}
+          - run:  ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - rolled back to: ${{ steps.rollback.outputs.rolled_back_to }}
+
+          原因調査は人間が行ってください。"
