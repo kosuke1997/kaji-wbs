@@ -1,0 +1,45 @@
+{
+  "issue": 1,
+  "round": 1,
+  "phase": "analyze",
+  "plan": {
+    "analysis_roles": [
+      "pm-triage",
+      "legal-reviewer",
+      "ux-designer"
+    ],
+    "skipped": {
+      "researcher": "外部の裏取りを要する記述がない。スタックは brief の tech で Next.js/Vercel/Turso に確定済み、45件のデータはオーナーが Issue 本文で提供済み、規制判断は .claude/legal-policy.md 内で自己完結する。調査対象が存在しない"
+    }
+  },
+  "reports": {},
+  "impl_tasks": [],
+  "decisions": [
+    {
+      "round": 1,
+      "by": "orchestrator",
+      "text": "編成を2段にする。第1段(並列): pm-triage + legal-reviewer / 第2段: ux-designer。analysis_roles の順序がそのまま段を表す。理由: ux-designer は行に出す列（頻度を frequency_label/recurrence/times_per_period のどれで見せるか、担当・合意レベルの既定値）と、空・失敗・読込中が何を指すかを pm-triage の仕様が確定しないと決められない。また legal-reviewer が表示文言に条件を付けた場合、それを織り込んだ画面仕様を1回で作れる。pm-triage と legal-reviewer は互いに独立（legal-reviewer は Issue 本文のデータ内容と brief だけで判定でき、pm-triage の仕様を必要としない）ため同時に走らせる。"
+    },
+    {
+      "round": 1,
+      "by": "orchestrator",
+      "text": "legal-reviewer を動かす根拠（念のためではない）: .claude/legal-policy.md 2章 挙動トリガー『他社の商標・ロゴ・サービス名を表示する』に実データが該当する。Issue 本文の45件シードに Oisix（他社サービス名）が4箇所あり、いずれも画面 / に表示される — id1 category_mid=Oisix・title『Oisixの注文（3〜4日分のメニュー選定）』、id2 category_mid=Oisix・title『Oisixの受け取り・冷蔵庫への収納』、id3 title『Oisixキットで夕食をつくる』、id34 trigger_note『通販・Oisix到着後』。受け入れ条件『大分類ごとにグループ化』『各行にタスク名が見える』により表示は確実。同2章は該当したら『必ず呼ぶ』と定め、1章は『該当するが軽微だから合格』を禁じているので、呼ばずに進める裁量は私にない。判断そのものは legal-reviewer の担当であり私はしない（4章 商標の指示的使用に当たるかを含む）。"
+    },
+    {
+      "round": 1,
+      "by": "orchestrator",
+      "text": "他の法務トリガーの該当有無（確認した範囲）: 領域トリガーは8項目すべて該当なし（家事の分担表であり、賭博・医療・金融・法律相談・人材・酒類食品の販売広告・未成年教育・政治のいずれでもない。A.食事 は調理家事であって食品の販売・効能表示ではない）。挙動トリガーのうち『個人情報を保存する』は該当なしと判断した — 本 Issue が保存するのは member.label の『夫』『妻』（役割ラベル。氏名・連絡先・位置情報・購買履歴のいずれでもない）と45件の家事定義のみで、brief の member.line_user_id は Issue の『やらないこと』により範囲外。ただしこの判断は legal-reviewer が覆してよい（私の判断は編成のためのものであり審査結果ではない）。外部データ取得 / ユーザー投稿の第三者表示 / 課金 / 生成AI出力の表示 / 通知送信 はいずれも本 Issue の範囲外。"
+    },
+    {
+      "round": 1,
+      "by": "orchestrator",
+      "text": "ux-designer を動かす根拠: 受け入れ条件に『/ を開くと大分類ごとにグループ化されたタスク一覧が表示される』『各行に タスク名/種別/頻度/担当/合意レベル が見える』があり画面変更を伴う。.claude/CLAUDE.md は『ux-designer を通していない UI 変更をマージしてはならない』と定める。加えて Issue の受け入れ条件は正常系のみで、8状態（初期/空/正常/送信中/成功/失敗/権限なし/オフライン）が未定義のため仕様化が必要。"
+    },
+    {
+      "round": 1,
+      "by": "orchestrator",
+      "text": "再実行の申し送り（board は round1/phase plan に初期化されているが、Issue #1 には過去実行の記録が残っている。各部署は必ず gh issue view 1 --comments で原文を読むこと）: (1) オーナー回答コメント 2026-08-30T12:19:44Z が approval_criteria の所在を .claude/approval-criteria.yaml に確定し、planned ラベル付き Issue は採否審査をスキップ（escalate_if は適用）と定めた。(2) 同コメントの『回答(2)』が frequency の正規化を確定し、frequency_label（原文）+ recurrence + times_per_period に分ける方式と、週3〜4回→3 のように下限を採る丸め方向、および45件の割り当て表を示した。過去の code-reviewer が MAJOR-1 として『pm-triage 仕様が上限を採るに変えており、オーナー確定表が上位』と指摘している。pm-triage はこのオーナー確定表に従うこと。(3) 現ブランチ autopilot/issue-1 に migrations/002・003・lib/tasks.js は存在しない（過去の実装は別ブランチ feature/1-task-list 側）。(4) 過去に未解決で残った論点: MAJOR-2 = .claude/design/design-tokens.md のコンポーネントインベントリ更新（implementer が sandbox で .claude/ を書けないと申告）、MAJOR-3 = 追加したマイグレーションを Preview/本番の Turso に適用する仕組みがリポジトリに存在しない。MAJOR-3 は本 Issue の変更範囲外の既存ギャップであり、integrate 局面で私が扱う。"
+    }
+  ],
+  "blocked": null
+}
