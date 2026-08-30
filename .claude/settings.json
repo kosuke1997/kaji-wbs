@@ -19,6 +19,10 @@
       "Bash(npm test)",
       "Bash(npm run lint)",
       "Bash(npm run build)",
+      "Bash(python scripts/preflight-issue.py:*)",
+      "Bash(python scripts/record-report.py:*)",
+      "Bash(python3 scripts/board.py:*)",
+      "Bash(python scripts/board.py:*)",
       "Bash(npx playwright install:*)",
       "Bash(node scripts/design-check.mjs:*)",
       "Bash(git status)",
@@ -62,5 +66,6 @@
       "Bash(*DROP COLUMN*)",
       "Bash(*TRUNCATE*)"
     ]
-  }
+  },
+  "_comment_python": "board.py は部署間の通信媒体。ここで許可していないと、部署は正しく実行を拒み、報告がボードに載らないまま『成功』で終わる（実運用で踏んだ）。"
 }
