@@ -1,4 +1,11 @@
-# 各プロダクト側の薄いファイル。実体は <org>/.github の再利用ワークフロー。
+# 各プロダクト側の薄いファイル。実体は kosuke1997/.github の再利用ワークフロー。
+#
+# 直列版と並列版を切り替えられる。
+#   gh variable set AUTOPILOT_MODE --body parallel   # 並列オーケストレーション
+#   gh variable set AUTOPILOT_MODE --body serial     # 直列（既定）
+#
+# 並列版は orchestrator が割り当てを決め、独立した部署が同時に走る。
+# 直列版は主セッションが順に呼ぶだけ。まず直列で動かし、安定してから並列に移すこと。
 name: Feedback Autopilot
 
 on:
@@ -6,7 +13,15 @@ on:
     types: [opened, labeled]
 
 jobs:
-  run:
+  # 無限ループ防止:
+  # labeled を拾うと、エージェント自身が優先度ラベルを付けた瞬間に再発火する。
+  # bot 自身のアクションを除外し、ラベル名を feedback に限定する。
+  serial:
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      vars.AUTOPILOT_MODE != 'parallel' &&
+      ( github.event.action == 'opened' ||
+        (github.event.action == 'labeled' && github.event.label.name == 'feedback') )
     # 再利用ワークフローの permissions は「絞る」ことしかできない。
     # 呼び出し側がここで権限を宣言していないと、呼び先が contents: write 等を
     # 要求した時点で startup_failure になる（ジョブが1つも始まらない）。
@@ -14,18 +29,29 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-      id-token: write     # 呼び先の claude-code-action が OIDC に使う
-
-    # 無限ループ防止:
-    # labeled を拾うと、エージェント自身が優先度ラベルを付けた瞬間に再発火する。
-    # bot 自身のアクションを除外し、ラベル名を feedback に限定する。
-    if: >
-      github.actor != 'github-actions[bot]' &&
-      ( github.event.action == 'opened' ||
-        (github.event.action == 'labeled' && github.event.label.name == 'feedback') )
+      id-token: write # 呼び先の claude-code-action が OIDC に使う
     uses: kosuke1997/.github/.github/workflows/autopilot.yml@main
     with:
       issue_number: ${{ github.event.issue.number }}
-      issue_body:   ${{ github.event.issue.body }}
+      issue_body: ${{ github.event.issue.body }}
       project_name: kaji-wbs
+    secrets: inherit
+
+  parallel:
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      vars.AUTOPILOT_MODE == 'parallel' &&
+      ( github.event.action == 'opened' ||
+        (github.event.action == 'labeled' && github.event.label.name == 'feedback') )
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: kosuke1997/.github/.github/workflows/autopilot-parallel.yml@main
+    with:
+      issue_number: ${{ github.event.issue.number }}
+      issue_body: ${{ github.event.issue.body }}
+      project_name: kaji-wbs
+      max_parallel: 3
     secrets: inherit
