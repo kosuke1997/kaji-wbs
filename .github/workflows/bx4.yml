@@ -1,0 +1,20 @@
+name: bx4-permissions-only
+
+on:
+  workflow_call:
+    inputs:
+      issue_number: { required: true,  type: number }
+      issue_body:   { required: true,  type: string }
+      project_name: { required: true,  type: string }
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - run: echo bx4-permissions-only

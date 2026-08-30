@@ -1,0 +1,13 @@
+name: call-bx5
+
+on:
+  workflow_dispatch:
+
+jobs:
+  call:
+    uses: ./.github/workflows/bx5.yml
+    with:
+      issue_number: 1
+      issue_body: "bisect"
+      project_name: kaji-wbs
+    secrets: inherit
