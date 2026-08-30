@@ -1,0 +1,13 @@
+name: test-local
+
+on:
+  workflow_dispatch:
+
+jobs:
+  call:
+    uses: ./.github/workflows/reusable-local.yml
+    with:
+      issue_number: 1
+      issue_body: "ローカル参照テスト"
+      project_name: kaji-wbs
+    secrets: inherit
