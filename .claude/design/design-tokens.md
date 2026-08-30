@@ -64,10 +64,9 @@
 `ux-designer` が「新規に作る前に既存を再利用できないか」を判断するための一覧。
 **コンポーネントを追加したら、ここに1行足す。** ここが古いと一貫性が壊れる。
 
+**実在するものだけを載せる。** 架空の行があると ux-designer が
+「再利用できる」と誤って判断し、存在しないコンポーネントを前提に仕様を書く。
+
 | コンポーネント | パス | 用途 |
 |---|---|---|
-| `Button` | `src/components/Button.tsx` | primary / secondary / danger |
-| `SettingRow` | `src/components/SettingRow.tsx` | ラベル + 操作要素の1行 |
-| `Toast` | `src/components/Toast.tsx` | success / error の一時通知 |
-| `EmptyState` | `src/components/EmptyState.tsx` | 空状態。見出し + 説明 + 次のアクション |
-| `Skeleton` | `src/components/Skeleton.tsx` | 読込中のプレースホルダ |
+| `EmptyState` | `components/EmptyState.jsx` | 空状態。見出し + 説明 + 次のアクション |
