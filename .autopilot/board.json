@@ -8,6 +8,15 @@
   },
   "reports": {},
   "impl_tasks": [],
-  "decisions": [],
-  "blocked": null
+  "decisions": [
+    {
+      "round": 1,
+      "by": "orchestrator",
+      "text": "判定: needs-human（PR作成せず停止）。根拠: (1) board.json は phase=plan / round=1 のままで、plan.analysis_roles が空 = 分析ラウンドが一度も割り当てられていない。(2) reports が空 = code-reviewer / qa-tester / design-qa の検証報告が一件も存在しない。(3) impl_tasks が空 = 実装タスクへの分割が行われていない。(4) git diff --stat origin/main...autopilot/issue-4 の結果、差分は .autopilot/board.json の13行追加のみで、プロダクトコードの変更がゼロ。すなわち実装自体が存在しない。(5) gh CLI が権限で実行不可のため Issue コメント側の報告有無を確認できず、運営規程の共通規則4『確認できなかった項目は未確認＝不合格として扱う』を適用。存在しない検証報告を合格とみなして PR を作成することは禁止されるため、needs-human として停止する。復旧に必要な作業: plan 局面のやり直し（分析ラウンドの割り当て）→ integrate（実装タスク分割）→ implementer による実装 → 検証ラウンド、をパイプラインの先頭から再実行すること。"
+    }
+  ],
+  "blocked": {
+    "round": 1,
+    "reason": "needs-human: 検証ラウンドの報告が存在しないため decide 不能。分析ラウンド未割当（plan.analysis_roles が空）・実装タスク未分割（impl_tasks が空）・検証報告ゼロ（reports が空）・プロダクトコードの差分ゼロ（origin/main との差分は board.json のみ）。加えて gh CLI が実行不可のため Issue コメント側の報告確認および needs-human ラベル付与・Issueコメントを自動実行できない。人間による対応が必要: (a) Issue #4 に needs-human ラベルを付与、(b) パイプラインを plan 局面から再実行。"
+  }
 }
