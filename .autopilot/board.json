@@ -12,7 +12,26 @@
       "researcher": "外部調査を要する記述がない。45タスクのデータ・頻度の正規化表(recurrence 9値/times_per_period)はオーナーがIssueコメントで確定済み、スタック(Next.js/Turso)は brief で確定、規制・事例・技術選定の裏取りを要する論点が本Issueに存在しない"
     }
   },
-  "reports": {},
+  "reports": {
+    "pm-triage": {
+      "status": "done",
+      "verdict": "合格（範囲を縮小して通す）",
+      "summary": "**判定: 合格（範囲を縮小して通す）** / status: done / role: pm-triage / **要約:** planned のため採否審査はスキップ。P1 / feature / 0.5日 / 影響4。line_user_id を範囲外にして個人情報トリガーを解消。legal-reviewer と ux-designer はいずれも不要。仕様は上記 1〜11 のコメントに記載。 / **実行できなかったこと（人手が必要）:**",
+      "questions": [
+        "migrations を Turso へ適用する経路をどうするか（#3 の前提になる。11/12 の申し送り1）。"
+      ],
+      "url": "https://github.com/kosuke1997/kaji-wbs/issues/2#issuecomment-5469515449",
+      "round": 1
+    },
+    "legal-reviewer": {
+      "status": "blocked",
+      "verdict": "未報告",
+      "summary": "legal-reviewer は Issue に何も書き残しませんでした。確認できなかった項目は不合格として扱います。",
+      "questions": [],
+      "url": "",
+      "round": 1
+    }
+  },
   "impl_tasks": [],
   "decisions": [
     {
