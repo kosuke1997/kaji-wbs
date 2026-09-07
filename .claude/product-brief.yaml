@@ -30,7 +30,11 @@ scope:
 data:
   entities:
     - name: member
-      fields: [id, label, line_user_id]
+      fields: [id, label]
+      # line_user_id は v1 の初期スコープに含めない。
+      # LINE通知を実装する Issue で追加する（下の later_prerequisites を参照）。
+      # 常に NULL の個人情報の列を先に作ると、扱っていないのに
+      # 「個人情報を保存する」トリガーだけが立ち、審査が空回りする。
     - name: task
       fields:
         [
@@ -39,7 +43,9 @@ data:
           category_mid,
           title,
           kind,
-          frequency,
+          frequency_label,
+          recurrence,
+          times_per_period,
           trigger_note,
           criteria_lv1,
           criteria_lv2,
@@ -70,6 +76,20 @@ tech:
 constraints:
   budget: 無料枠のみ（Vercel Hobby / Turso Free / LINE公式アカウント無料枠）
   deadline: なし
+
+# 個人情報を扱い始める時点で必要になるもの。
+# legal-policy.md 7節が「未整備のまま autonomy: full で走らせない」と定めている。
+# LINE通知は member.line_user_id（個人情報）を保存するため、ここに該当する。
+later_prerequisites:
+  - when: LINE通知を実装する Issue の着手前
+    required:
+      - プライバシーポリシー（取得する情報の種類と利用目的を明示）
+      - 利用規約
+      - 問い合わせ窓口
+      - member.line_user_id の追加（このタイミングでデータモデルに入れる）
+    note: >-
+      これらが揃うまで LINE通知の Issue を起票しない。
+      起票した時点で legal-reviewer が「未整備」を理由に停止する。
 
 autonomy: full
 
