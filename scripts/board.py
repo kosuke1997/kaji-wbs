@@ -74,12 +74,25 @@ def save(b):
 
 
 def cmd_init(a):
+    """ボードを初期化する。
+
+    別 Issue のボードが残っていたら作り直す。使い回すと、
+    前の Issue の decisions を自分の判断だと誤読する（実運用で起きた）。
+    同じ Issue なら round と decisions を保つ（再実行の続きから始めるため）。
+    """
     b = load()
+    prev = b.get("issue")
+
+    if prev is not None and prev != a.issue:
+        print(f"board: Issue #{prev} のボードが残っていたので作り直します")
+        b = dict(EMPTY)
+        b["plan"] = {"analysis_roles": [], "skipped": {}}
+
     b["issue"] = a.issue
     if not b.get("round"):
         b["round"] = 1
     save(b)
-    print(f"board: Issue #{a.issue} / round {b['round']}")
+    print(f"board: Issue #{a.issue} / round {b['round']} / 判断 {len(b['decisions'])}件")
 
 
 def cmd_plan(a):

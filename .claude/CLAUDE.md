@@ -105,7 +105,8 @@ python scripts/preflight-issue.py <owner/repo> --issue-body <本文ファイル>
 
 ## 法務・倫理
 
-- `hq/legal-policy.md` の「審査のトリガー」に該当する変更は、
+- `.claude/legal-policy.md`（hq から払い出し時に複製されたもの）の
+  「審査のトリガー」に該当する変更は、
   PR 作成前に `legal-reviewer` の審査を通す。
 - 判定が `専門家確認` なら `needs-human` を付けて停止する。**覆さない。**
 - **個人情報を扱うのにプライバシーポリシーが未整備なら公開しない。**
@@ -124,7 +125,8 @@ python scripts/preflight-issue.py <owner/repo> --issue-body <本文ファイル>
   のトークンだけを使う。**ハードコードされた値は `code-reviewer` が MAJOR で差し戻す。**
 - 新規コンポーネントを作る前に、トークン末尾の「既存コンポーネントのインベントリ」を読む。
   **コンポーネントを追加したら、そのインベントリに1行足す。** ここが古いと一貫性が壊れる。
-- 横断の原則は `hq/design-principles.md`。トークンの追加が必要な場合は `needs-human`。
+- 横断の原則は `.claude/design/design-principles.md`（hq からの複製）。
+  トークンの追加が必要な場合は `needs-human`。
 - すべての画面は8状態（初期/空/正常/送信中/成功/失敗/権限なし/オフライン）について
   表示内容または「該当なし」を仕様に持つ。
 - `design-qa` が Preview 環境で実測する基準:
