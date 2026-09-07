@@ -27,6 +27,22 @@ if hasattr(sys.stdout, "reconfigure"):
 
 BOARD = ".autopilot/board.json"
 
+# 段は2つまで。3段以上が要る分割は、そもそも Issue が大きすぎる。
+MAX_STAGES = 2
+
+
+def normalize_stages(value):
+    """analysis_roles を「段の配列」に正規化する。
+
+    旧形式（平坦な配列）で書かれたボードも読めるようにしておく。
+    途中で形式を変えたとき、実行中のラウンドが壊れないようにするため。
+    """
+    if not value:
+        return []
+    if all(isinstance(v, str) for v in value):
+        return [list(value)]
+    return [list(v) for v in value if v]
+
 EMPTY = {
     "issue": None,
     "round": 1,
@@ -67,8 +83,40 @@ def cmd_init(a):
 
 
 def cmd_plan(a):
+    """分析ラウンドの割り当てを記録する。
+
+    段を分けられる。`--stage` を複数回渡すと、その順に実行される。
+
+        --stage "pm-triage,legal-reviewer" --stage "ux-designer"
+
+    2段が要るのは、前段の出力がないと後段の前提が定まらない場合
+    （例: pm-triage の仕様がないと ux-designer が出す列を決められない）。
+    段を無視して全部同時に走らせると、後段は前提を自分で仮定し、統合時に矛盾する。
+    """
     b = load()
-    b["plan"]["analysis_roles"] = [r.strip() for r in a.roles.split(",") if r.strip()]
+
+    if a.stage:
+        stages = [[r.strip() for r in s.split(",") if r.strip()] for s in a.stage]
+        stages = [s for s in stages if s]
+    elif a.roles:
+        stages = [[r.strip() for r in a.roles.split(",") if r.strip()]]
+    else:
+        print("--roles か --stage のどちらかが要ります", file=sys.stderr)
+        raise SystemExit(2)
+
+    if len(stages) > MAX_STAGES:
+        print(f"段は{MAX_STAGES}つまでです（{len(stages)}段が指定されました）", file=sys.stderr)
+        raise SystemExit(2)
+
+    seen = set()
+    for st in stages:
+        for role in st:
+            if role in seen:
+                print(f"{role} が複数の段に現れています", file=sys.stderr)
+                raise SystemExit(2)
+            seen.add(role)
+
+    b["plan"]["analysis_roles"] = stages
     for s in a.skip or []:
         if "=" not in s:
             print(f"--skip は role=理由 の形式で指定してください: {s}", file=sys.stderr)
@@ -77,10 +125,24 @@ def cmd_plan(a):
         b["plan"]["skipped"][role.strip()] = reason.strip()
     b["phase"] = "analyze"
     save(b)
+
     print("board: 分析ラウンドの割り当てを記録しました")
-    print("  動かす:", ", ".join(b["plan"]["analysis_roles"]))
+    for i, st in enumerate(stages, 1):
+        tag = "（同時）" if len(st) > 1 else ""
+        print(f"  {i}段目: {', '.join(st)} {tag}")
     for k, v in b["plan"]["skipped"].items():
         print(f"  飛ばす: {k} — {v}")
+
+
+def cmd_stage(a):
+    """指定した段の部署一覧を JSON で出す。ワークフローの matrix に渡す。
+
+    段が存在しない場合は [] を返す（ジョブごとスキップさせるため）。
+    """
+    b = load()
+    stages = normalize_stages(b.get("plan", {}).get("analysis_roles") or [])
+    idx = a.n - 1
+    print(json.dumps(stages[idx] if 0 <= idx < len(stages) else [], ensure_ascii=False))
 
 
 def cmd_report(a):
@@ -212,9 +274,18 @@ def main():
     s.set_defaults(fn=cmd_init)
 
     s = sub.add_parser("plan")
-    s.add_argument("--roles", required=True, help="カンマ区切り")
+    s.add_argument("--roles", help="カンマ区切り。1段だけの場合")
+    s.add_argument(
+        "--stage",
+        action="append",
+        help="1段ぶんの部署（カンマ区切り）。複数回渡すとその順に実行される",
+    )
     s.add_argument("--skip", action="append", help="role=理由")
     s.set_defaults(fn=cmd_plan)
+
+    s = sub.add_parser("stage")
+    s.add_argument("--n", type=int, required=True, help="何段目か（1始まり）")
+    s.set_defaults(fn=cmd_stage)
 
     s = sub.add_parser("report")
     s.add_argument("--role", required=True)
