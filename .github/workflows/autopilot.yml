@@ -1,11 +1,19 @@
 # 各プロダクト側の薄いファイル。実体は kosuke1997/.github の再利用ワークフロー。
 #
-# 直列版と並列版を切り替えられる。
-#   gh variable set AUTOPILOT_MODE --body parallel   # 並列オーケストレーション
-#   gh variable set AUTOPILOT_MODE --body serial     # 直列（既定）
+# 直列版と並列版を切り替えられる。**既定は直列。**
+#   gh variable set AUTOPILOT_MODE --body parallel
+#   gh variable set AUTOPILOT_MODE --body serial     （既定）
 #
-# 並列版は orchestrator が割り当てを決め、独立した部署が同時に走る。
-# 直列版は主セッションが順に呼ぶだけ。まず直列で動かし、安定してから並列に移すこと。
+# 並列に切り替えてよいのは、直列で回して**性能の劣化が実証された場合だけ**。
+# マルチエージェントは同じ仕事に3〜10倍のトークンを使う。
+# 速そうだから、という理由で切り替えると調整コストだけが乗る。
+#
+# 切り替える根拠になるのは次のどれか:
+#   - 1回の実行がコンテキスト上限に当たるようになった
+#   - 同時に動ける「読むだけの役」が2つ以上ある Issue が常態化した
+#   - 特定の役だけ別の判断根拠（legal-policy 等）を要する場面が増えた
+#
+# 根拠: docs/MULTI-AGENT-RESEARCH.md
 name: Feedback Autopilot
 
 on:
@@ -53,5 +61,4 @@ jobs:
       issue_number: ${{ github.event.issue.number }}
       issue_body: ${{ github.event.issue.body }}
       project_name: kaji-wbs
-      max_parallel: 3
     secrets: inherit
