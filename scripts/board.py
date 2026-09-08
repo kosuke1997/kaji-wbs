@@ -158,6 +158,23 @@ def cmd_stage(a):
     print(json.dumps(stages[idx] if 0 <= idx < len(stages) else [], ensure_ascii=False))
 
 
+def cmd_planned(a):
+    """司令塔が plan 局面で仕事をしたかを yes/no で返す。
+
+    「分析0部署」は正当な結論である（前のラウンドで全部済んでいる等）。
+    一方「司令塔が何も書かずに終わった」も分析0部署に見える。
+    この2つを区別しないと、正しい判断のほうを失敗として落としてしまう（実際に起きた）。
+
+    仕事をした証拠は、飛ばした理由か、記録した判断のどちらかが残っていること。
+    """
+    b = load()
+    stages = normalize_stages(b.get("plan", {}).get("analysis_roles") or [])
+    has_roles = any(stages)
+    has_skips = bool(b.get("plan", {}).get("skipped"))
+    has_decisions = bool(b.get("decisions"))
+    print("yes" if (has_roles or has_skips or has_decisions) else "no")
+
+
 def cmd_report(a):
     b = load()
     b["reports"][a.role] = {
@@ -299,6 +316,9 @@ def main():
     s = sub.add_parser("stage")
     s.add_argument("--n", type=int, required=True, help="何段目か（1始まり）")
     s.set_defaults(fn=cmd_stage)
+
+    s = sub.add_parser("planned")
+    s.set_defaults(fn=cmd_planned)
 
     s = sub.add_parser("report")
     s.add_argument("--role", required=True)
