@@ -111,10 +111,16 @@ def cmd_plan(a):
     if a.stage:
         stages = [[r.strip() for r in s.split(",") if r.strip()] for s in a.stage]
         stages = [s for s in stages if s]
-    elif a.roles:
-        stages = [[r.strip() for r in a.roles.split(",") if r.strip()]]
+    elif a.roles is not None:
+        roles = [r.strip() for r in a.roles.split(",") if r.strip()]
+        stages = [roles] if roles else []
+    elif a.skip:
+        # 全部署を飛ばす、は正当な結論。理由さえ残っていればよい。
+        # ここを必須にしていたせいで、司令塔は 0 部署のときに
+        # plan.skipped へ理由を書けなかった（司令塔自身が報告してきた欠陥）。
+        stages = []
     else:
-        print("--roles か --stage のどちらかが要ります", file=sys.stderr)
+        print("--roles / --stage / --skip のいずれかが要ります", file=sys.stderr)
         raise SystemExit(2)
 
     if len(stages) > MAX_STAGES:
@@ -140,6 +146,8 @@ def cmd_plan(a):
     save(b)
 
     print("board: 分析ラウンドの割り当てを記録しました")
+    if not stages:
+        print("  動かす部署なし（全員に飛ばす理由あり）")
     for i, st in enumerate(stages, 1):
         tag = "（同時）" if len(st) > 1 else ""
         print(f"  {i}段目: {', '.join(st)} {tag}")
